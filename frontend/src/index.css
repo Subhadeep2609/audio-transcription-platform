@@ -26,3 +26,8 @@
   border-color: rgb(239,68,68);
 }
 
+.input {
+  @apply w-full px-4 py-3 rounded-xl bg-black/40 border border-red-500/20 text-white placeholder-slate-500 focus:outline-none focus:border-red-500 transition;
+}
+
+

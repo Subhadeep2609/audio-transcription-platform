@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useAuth } from "../auth/context/AuthContext";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 60 },
@@ -8,6 +9,8 @@ const fadeUp = {
 };
 
 export default function Home() {
+  const { user, logout } = useAuth();
+
   const [logs, setLogs] = useState<string[]>([
     "System bootstrapped successfully",
     "Awaiting audio input stream",
@@ -40,12 +43,48 @@ export default function Home() {
             <a href="#contact" className="hover:text-red-400 transition">Contact</a>
           </div>
 
-          <Link
-            to="/visualizer"
-            className="px-6 py-2 rounded-xl bg-red-500 text-black font-semibold hover:bg-red-400 transition shadow-lg shadow-red-500/30"
-          >
-            Launch App
-          </Link>
+          <div className="flex items-center gap-3">
+            {!user ? (
+              <>
+                <Link
+                  to="/login"
+                  className="px-4 py-2 rounded-xl border border-red-500/40 text-sm hover:bg-red-500/10 transition"
+                >
+                  Login
+                </Link>
+
+                <Link
+                  to="/register"
+                  className="px-4 py-2 rounded-xl border border-red-500/40 text-sm hover:bg-red-500/10 transition"
+                >
+                  Register
+                </Link>
+
+                <Link
+                  to="/visualizer"
+                  className="px-6 py-2 rounded-xl bg-red-500 text-black font-semibold hover:bg-red-400 transition shadow-lg shadow-red-500/30"
+                >
+                  Launch App
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/visualizer"
+                  className="px-6 py-2 rounded-xl bg-red-500 text-black font-semibold hover:bg-red-400 transition shadow-lg shadow-red-500/30"
+                >
+                  Dashboard
+                </Link>
+
+                <button
+                  onClick={logout}
+                  className="px-4 py-2 rounded-xl border border-red-500/40 text-sm hover:bg-red-500/10 transition"
+                >
+                  Logout
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </nav>
 
@@ -72,11 +111,12 @@ export default function Home() {
 
             <div className="mt-10 flex gap-6">
               <Link
-                to="/visualizer"
+                to={user ? "/visualizer" : "/register"}
                 className="px-8 py-4 rounded-xl bg-red-500 text-black font-semibold hover:bg-red-400 transition"
               >
-                Get Started
+                {user ? "Go to Dashboard" : "Get Started"}
               </Link>
+
               <a
                 href="#features"
                 className="px-8 py-4 rounded-xl border border-red-500/40 hover:bg-red-500/10 transition"
@@ -237,10 +277,7 @@ export default function Home() {
               ["https://i.pravatar.cc/150?img=22", "Meera", "The real-time audio visualization is incredibly smooth."],
               ["https://i.pravatar.cc/150?img=48", "Rohan", "A solid example of modern full-stack and AI integration."],
             ].map(([img, name, text]) => (
-              <div
-                key={name}
-                className="p-8 bg-[#140404] rounded-2xl border border-red-500/20"
-              >
+              <div key={name} className="p-8 bg-[#140404] rounded-2xl border border-red-500/20">
                 <img src={img} className="w-14 h-14 rounded-full mb-4" />
                 <p className="text-slate-300">“{text}”</p>
                 <p className="mt-4 text-red-400 font-semibold">{name}</p>
@@ -266,45 +303,12 @@ export default function Home() {
 
           <div className="grid md:grid-cols-3 gap-10">
             {[
-              {
-                plan: "Starter",
-                price: "Free",
-                features: [
-                  "Live audio visualizer",
-                  "Basic transcription",
-                  "Local usage",
-                  "Community support",
-                ],
-              },
-              {
-                plan: "Pro",
-                price: "$19 / month",
-                features: [
-                  "Unlimited sessions",
-                  "Real-time transcription",
-                  "Cloud streaming",
-                  "Priority updates",
-                ],
-              },
-              {
-                plan: "Enterprise",
-                price: "Custom",
-                features: [
-                  "Dedicated backend",
-                  "High-volume streaming",
-                  "Custom AI models",
-                  "SLA & priority support",
-                ],
-              },
+              { plan: "Starter", price: "Free", features: ["Live audio visualizer", "Basic transcription", "Local usage", "Community support"] },
+              { plan: "Pro", price: "$19 / month", features: ["Unlimited sessions", "Real-time transcription", "Cloud streaming", "Priority updates"] },
+              { plan: "Enterprise", price: "Custom", features: ["Dedicated backend", "High-volume streaming", "Custom AI models", "SLA & priority support"] },
             ].map((tier) => (
-              <motion.div
-                key={tier.plan}
-                whileHover={{ y: -8 }}
-                className="p-8 bg-[#140404] rounded-2xl border border-red-500/20"
-              >
-                <h3 className="text-xl font-semibold text-red-400 mb-2">
-                  {tier.plan}
-                </h3>
+              <motion.div key={tier.plan} whileHover={{ y: -8 }} className="p-8 bg-[#140404] rounded-2xl border border-red-500/20">
+                <h3 className="text-xl font-semibold text-red-400 mb-2">{tier.plan}</h3>
                 <p className="text-3xl font-bold mb-4">{tier.price}</p>
                 <ul className="space-y-2 text-slate-400 text-sm">
                   {tier.features.map((f) => (
@@ -319,31 +323,15 @@ export default function Home() {
 
       {/* CONTACT */}
       <section id="contact" className="px-6 py-32 bg-black/40">
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeUp}
-          transition={{ duration: 0.6 }}
-          className="max-w-4xl mx-auto"
-        >
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-6">
-            Contact Sales / Request Demo
-          </h2>
-
-          <p className="text-center text-slate-400 mb-12">
-            Tell us about your requirements and we’ll get back to you.
-          </p>
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} transition={{ duration: 0.6 }} className="max-w-4xl mx-auto">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-6">Contact Sales / Request Demo</h2>
+          <p className="text-center text-slate-400 mb-12">Tell us about your requirements and we’ll get back to you.</p>
 
           <form className="grid md:grid-cols-2 gap-6">
             <input className="input" placeholder="Full Name" />
             <input className="input" placeholder="Company / Organization" />
             <input className="input md:col-span-2" placeholder="Work Email" />
-            <textarea
-              className="input md:col-span-2"
-              rows={4}
-              placeholder="Describe your use case"
-            />
+            <textarea className="input md:col-span-2" rows={4} placeholder="Describe your use case" />
             <button className="md:col-span-2 px-8 py-4 rounded-xl bg-red-500 text-black font-semibold hover:bg-red-400 transition">
               Submit Request
             </button>
