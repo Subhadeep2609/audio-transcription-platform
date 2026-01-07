@@ -1,0 +1,15 @@
+# Node
+node_modules/
+dist/
+.env
+
+# Java
+target/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+#vs code
+.history/
