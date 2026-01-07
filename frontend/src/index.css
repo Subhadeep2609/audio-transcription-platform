@@ -1,1 +1,28 @@
 @import "tailwindcss";
+
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 18s linear infinite;
+}
+
+.input {
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: #e5e7eb;
+}
+.input:focus {
+  outline: none;
+  border-color: rgb(239,68,68);
+}
+
