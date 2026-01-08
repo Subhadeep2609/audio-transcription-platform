@@ -2,7 +2,6 @@ package com.echosphere.backend.config;
 
 import com.echosphere.backend.util.JwtUtil;
 import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -28,30 +27,28 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain
-    ) throws ServletException, IOException {
+    ) throws IOException, jakarta.servlet.ServletException {
 
-        String authHeader = request.getHeader("Authorization");
+        String header = request.getHeader("Authorization");
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
+        if (header != null && header.startsWith("Bearer ")) {
+            String token = header.substring(7);
 
-            if (jwtUtil.isTokenValid(token)) {
+            if (jwtUtil.validateToken(token)) {
                 String email = jwtUtil.extractEmail(token);
 
-                UsernamePasswordAuthenticationToken authentication =
+                UsernamePasswordAuthenticationToken auth =
                         new UsernamePasswordAuthenticationToken(
                                 email,
                                 null,
                                 Collections.emptyList()
                         );
 
-                authentication.setDetails(
+                auth.setDetails(
                         new WebAuthenticationDetailsSource().buildDetails(request)
                 );
 
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-
-                // Make email available in controllers
+                SecurityContextHolder.getContext().setAuthentication(auth);
                 request.setAttribute("userEmail", email);
             }
         }

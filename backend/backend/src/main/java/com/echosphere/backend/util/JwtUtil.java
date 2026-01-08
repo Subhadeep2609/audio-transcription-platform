@@ -1,6 +1,5 @@
 package com.echosphere.backend.util;
 
-import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Component;
@@ -12,7 +11,7 @@ import java.util.Date;
 public class JwtUtil {
 
     private static final String SECRET =
-            "echosphere-super-secret-key-which-is-long-enough";
+            "echosphere-super-secret-key-which-is-long-enough-123456";
 
     private static final long EXPIRATION = 1000 * 60 * 60; // 1 hour
 
@@ -28,16 +27,15 @@ public class JwtUtil {
     }
 
     public String extractEmail(String token) {
-        Claims claims = Jwts.parser()
+        return Jwts.parser()
                 .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
-                .getPayload();
-
-        return claims.getSubject();
+                .getPayload()
+                .getSubject();
     }
 
-    public boolean isTokenValid(String token) {
+    public boolean validateToken(String token) {
         try {
             extractEmail(token);
             return true;

@@ -1,30 +1,35 @@
-import { createContext, useContext, useState, ReactNode } from "react";
-
-interface User {
-  email: string;
-}
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
 interface AuthContextType {
-  user: User | null;
-  login: (email: string) => void;
+  isAuthenticated: boolean;
+  login: (token: string) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const login = (email: string) => {
-    setUser({ email });
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  const login = (token: string) => {
+    localStorage.setItem("token", token);
+    setIsAuthenticated(true);
   };
 
   const logout = () => {
-    setUser(null);
+    localStorage.removeItem("token");
+    setIsAuthenticated(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
