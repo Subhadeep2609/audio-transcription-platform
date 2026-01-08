@@ -2,6 +2,7 @@ import { useState } from "react";
 import AuthLayout from "../components/AuthLayout";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { api } from "../api/api";
 
 export default function Login() {
   const { login } = useAuth();
@@ -17,23 +18,14 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:8080/api/auth/login", {
+      const data = await api<{ token: string }>("/api/auth/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
+        body: { email, password },
+        auth: false,
       });
-
-      if (!res.ok) {
-        throw new Error("Invalid credentials");
-      }
-
-      const data = await res.json();
 
       // backend returns ONLY token
       login(data.token);
-
       navigate("/visualizer");
     } catch (err: any) {
       setError(err.message || "Login failed");
