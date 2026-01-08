@@ -2,7 +2,7 @@ import { useState } from "react";
 import AuthLayout from "../components/AuthLayout";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { api } from "../api/api";
+import { api } from "../../api/api";
 
 export default function Login() {
   const { login } = useAuth();
