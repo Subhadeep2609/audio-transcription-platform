@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../auth/context/AuthContext";
 
 type Particle = {
   x: number;
@@ -17,6 +19,15 @@ export default function VisualizerUI() {
   const hueRef = useRef(0);
   const particlesRef = useRef<Particle[]>([]);
 
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
+
+  /* AUDIO INIT */
   useEffect(() => {
     (async () => {
       try {
@@ -41,6 +52,7 @@ export default function VisualizerUI() {
     })();
   }, []);
 
+  /* CANVAS */
   useEffect(() => {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
@@ -58,7 +70,7 @@ export default function VisualizerUI() {
 
     const initParticles = () => {
       const cx = innerWidth / 2;
-      const cy = innerHeight / 2 + innerHeight * 0.05;
+      const cy = innerHeight / 2 + innerHeight * 0.08;
       const radius = Math.min(innerWidth, innerHeight) * 0.2;
 
       particlesRef.current = Array.from({ length: 60 }, () => {
@@ -84,7 +96,7 @@ export default function VisualizerUI() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       const cx = innerWidth / 2;
-      const cy = innerHeight / 2 + innerHeight * 0.05;
+      const cy = innerHeight / 2 + innerHeight * 0.08;
       const baseRadius = Math.min(innerWidth, innerHeight) * 0.22;
 
       const bars = dataRef.current.length;
@@ -92,7 +104,6 @@ export default function VisualizerUI() {
 
       hueRef.current = (hueRef.current + 0.35) % 360;
 
-      // 🌈 radial glow
       const glow = ctx.createRadialGradient(
         cx,
         cy,
@@ -101,34 +112,30 @@ export default function VisualizerUI() {
         cy,
         baseRadius * 2
       );
-      glow.addColorStop(0, `hsla(${hueRef.current},90%,60%,0.15)`);
+      glow.addColorStop(0, `hsla(${hueRef.current},90%,55%,0.12)`);
       glow.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = glow;
       ctx.fillRect(0, 0, innerWidth, innerHeight);
 
-      // 🌈 ring
       const ringGradient = ctx.createConicGradient(
-        hueRef.current * Math.PI / 180,
+        (hueRef.current * Math.PI) / 180,
         cx,
         cy
       );
-      ringGradient.addColorStop(0, "#6366f1");
-      ringGradient.addColorStop(0.33, "#22d3ee");
-      ringGradient.addColorStop(0.66, "#ec4899");
-      ringGradient.addColorStop(1, "#6366f1");
+      ringGradient.addColorStop(0, "#ef4444");
+      ringGradient.addColorStop(0.5, "#f97316");
+      ringGradient.addColorStop(1, "#ef4444");
 
       ctx.beginPath();
       ctx.arc(cx, cy, baseRadius, 0, Math.PI * 2);
       ctx.strokeStyle = ringGradient;
       ctx.lineWidth = 3;
       ctx.shadowBlur = 18;
-      ctx.shadowColor = "#22d3ee";
+      ctx.shadowColor = "#ef4444";
       ctx.stroke();
 
-      // ✨ internal particles
       const energy =
-        dataRef.current.reduce((a, b) => a + b, 0) /
-        (bars * 255);
+        dataRef.current.reduce((a, b) => a + b, 0) / (bars * 255);
 
       particlesRef.current.forEach(p => {
         p.x += p.vx * (0.5 + energy);
@@ -143,13 +150,12 @@ export default function VisualizerUI() {
           p.vy *= -1;
         }
 
-        ctx.fillStyle = `hsla(${(hueRef.current + dist) % 360},90%,65%,0.6)`;
+        ctx.fillStyle = `hsla(${(hueRef.current + dist) % 360},90%,60%,0.6)`;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fill();
       });
 
-      // 🌈 waveform
       for (let i = 0; i < bars; i++) {
         const raw = dataRef.current[i] / 255;
         smoothRef.current[i] =
@@ -183,24 +189,41 @@ export default function VisualizerUI() {
   }, []);
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 overflow-hidden">
+    <div className="relative min-h-screen bg-gradient-to-br from-[#120000] via-[#1a0505] to-black overflow-hidden">
       <canvas ref={canvasRef} className="absolute inset-0" />
 
-      <header className="relative z-10 w-full flex flex-col items-center pt-6 gap-3">
-        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 text-xs animate-pulse">
-          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+      {/* TOP RIGHT NAV */}
+      <div className="relative z-10 w-full flex justify-end gap-3 px-6 pt-6">
+        <Link
+          to="/"
+          className="px-4 py-2 rounded-xl border border-red-500/40 text-sm text-red-300 hover:bg-red-500/10 transition"
+        >
+          Home
+        </Link>
+        <button
+          onClick={handleLogout}
+          className="px-4 py-2 rounded-xl border border-red-500/40 text-sm text-red-300 hover:bg-red-500/10 transition"
+        >
+          Logout
+        </button>
+      </div>
+
+      {/* STATUS */}
+      <div className="relative z-10 flex flex-col items-center pt-2 gap-4">
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-400/30 text-red-300 text-xs animate-pulse">
+          <span className="w-2 h-2 rounded-full bg-red-400" />
           LIVE
         </div>
 
-        <div className="w-full max-w-4xl bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl px-6 py-4 shadow-xl">
+        <div className="w-full max-w-4xl bg-black/40 backdrop-blur-md border border-red-500/20 rounded-2xl px-6 py-4 shadow-xl">
           <h1 className="text-center text-white text-xl sm:text-2xl font-semibold tracking-wide">
-            Audio Transcription Platform
+            Real-Time Audio Visualizer
           </h1>
           <p className="text-center text-slate-300 mt-1 text-sm sm:text-base">
             {status}
           </p>
         </div>
-      </header>
+      </div>
 
       <footer className="absolute bottom-4 w-full text-center text-xs text-slate-500">
         Powered by EchoSphere
