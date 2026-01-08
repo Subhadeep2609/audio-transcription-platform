@@ -12,7 +12,8 @@ public class HealthController {
     public Map<String, String> health() {
         return Map.of(
                 "status", "UP",
-                "service", "EchoSphere Backend"
+                "service", "EchoSphere Backend",
+                "version", "1.0.0"
         );
     }
 }
