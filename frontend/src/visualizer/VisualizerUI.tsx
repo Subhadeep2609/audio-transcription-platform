@@ -12,12 +12,17 @@ type Particle = {
 
 export default function VisualizerUI() {
   const [status, setStatus] = useState("Initializing...");
+  const [transcript, setTranscript] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const dataRef = useRef<Uint8Array | null>(null);
   const smoothRef = useRef<number[]>([]);
   const hueRef = useRef(0);
   const particlesRef = useRef<Particle[]>([]);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -32,9 +37,17 @@ export default function VisualizerUI() {
     (async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        // Recorder
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        };
+
         const audioCtx = new AudioContext();
         const src = audioCtx.createMediaStreamSource(stream);
-
         const analyser = audioCtx.createAnalyser();
         analyser.fftSize = 512;
         analyser.smoothingTimeConstant = 0.95;
@@ -52,6 +65,44 @@ export default function VisualizerUI() {
     })();
   }, []);
 
+  /* TRANSCRIBE */
+  const handleTranscribe = async () => {
+    if (!mediaRecorderRef.current) return;
+
+    setTranscript(null);
+    setLoading(true);
+    audioChunksRef.current = [];
+
+    mediaRecorderRef.current.start();
+
+    setTimeout(async () => {
+      mediaRecorderRef.current?.stop();
+
+      mediaRecorderRef.current!.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const formData = new FormData();
+        formData.append("audio", audioBlob, "recording.webm");
+
+        try {
+          const res = await fetch("http://localhost:8080/api/transcribe", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: formData,
+          });
+
+          const data = await res.json();
+          setTranscript(data.text);
+        } catch {
+          setTranscript("Transcription failed");
+        } finally {
+          setLoading(false);
+        }
+      };
+    }, 4000);
+  };
+
   /* CANVAS */
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -67,26 +118,6 @@ export default function VisualizerUI() {
     };
     resize();
     window.addEventListener("resize", resize);
-
-    const initParticles = () => {
-      const cx = innerWidth / 2;
-      const cy = innerHeight / 2 + innerHeight * 0.08;
-      const radius = Math.min(innerWidth, innerHeight) * 0.2;
-
-      particlesRef.current = Array.from({ length: 60 }, () => {
-        const a = Math.random() * Math.PI * 2;
-        const r = Math.random() * radius;
-        return {
-          x: cx + Math.cos(a) * r,
-          y: cy + Math.sin(a) * r,
-          vx: (Math.random() - 0.5) * 0.25,
-          vy: (Math.random() - 0.5) * 0.25,
-          r: Math.random() * 1.6 + 0.6,
-        };
-      });
-    };
-
-    initParticles();
 
     const draw = () => {
       requestAnimationFrame(draw);
@@ -104,82 +135,22 @@ export default function VisualizerUI() {
 
       hueRef.current = (hueRef.current + 0.35) % 360;
 
-      const glow = ctx.createRadialGradient(
-        cx,
-        cy,
-        baseRadius * 0.4,
-        cx,
-        cy,
-        baseRadius * 2
-      );
-      glow.addColorStop(0, `hsla(${hueRef.current},90%,55%,0.12)`);
-      glow.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = glow;
-      ctx.fillRect(0, 0, innerWidth, innerHeight);
-
-      const ringGradient = ctx.createConicGradient(
-        (hueRef.current * Math.PI) / 180,
-        cx,
-        cy
-      );
-      ringGradient.addColorStop(0, "#ef4444");
-      ringGradient.addColorStop(0.5, "#f97316");
-      ringGradient.addColorStop(1, "#ef4444");
-
-      ctx.beginPath();
-      ctx.arc(cx, cy, baseRadius, 0, Math.PI * 2);
-      ctx.strokeStyle = ringGradient;
-      ctx.lineWidth = 3;
-      ctx.shadowBlur = 18;
-      ctx.shadowColor = "#ef4444";
-      ctx.stroke();
-
-      const energy =
-        dataRef.current.reduce((a, b) => a + b, 0) / (bars * 255);
-
-      particlesRef.current.forEach(p => {
-        p.x += p.vx * (0.5 + energy);
-        p.y += p.vy * (0.5 + energy);
-
-        const dx = p.x - cx;
-        const dy = p.y - cy;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist > baseRadius * 0.9) {
-          p.vx *= -1;
-          p.vy *= -1;
-        }
-
-        ctx.fillStyle = `hsla(${(hueRef.current + dist) % 360},90%,60%,0.6)`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
       for (let i = 0; i < bars; i++) {
         const raw = dataRef.current[i] / 255;
-        smoothRef.current[i] =
-          smoothRef.current[i] * 0.85 + raw * 0.15;
-
+        smoothRef.current[i] = smoothRef.current[i] * 0.85 + raw * 0.15;
         const intensity = smoothRef.current[i];
-        const waveLen = baseRadius * 0.12 + intensity * baseRadius * 0.9;
 
         const angle = i * step;
         const x1 = cx + Math.cos(angle) * baseRadius;
         const y1 = cy + Math.sin(angle) * baseRadius;
-        const x2 = cx + Math.cos(angle) * (baseRadius + waveLen);
-        const y2 = cy + Math.sin(angle) * (baseRadius + waveLen);
+        const x2 = cx + Math.cos(angle) * (baseRadius + intensity * baseRadius);
 
-        const color = `hsla(${(hueRef.current + i) % 360},90%,60%,${0.4 + intensity})`;
-
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2.4;
-        ctx.shadowBlur = 16;
-        ctx.shadowColor = color;
+        ctx.strokeStyle = `hsla(${(hueRef.current + i) % 360},90%,60%,0.6)`;
+        ctx.lineWidth = 2;
 
         ctx.beginPath();
         ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
+        ctx.lineTo(x2, y1);
         ctx.stroke();
       }
     };
@@ -192,7 +163,7 @@ export default function VisualizerUI() {
     <div className="relative min-h-screen bg-gradient-to-br from-[#120000] via-[#1a0505] to-black overflow-hidden">
       <canvas ref={canvasRef} className="absolute inset-0" />
 
-      {/* TOP RIGHT NAV */}
+      {/* TOP RIGHT */}
       <div className="relative z-10 w-full flex justify-end gap-3 px-6 pt-6">
         <Link
           to="/"
@@ -208,20 +179,30 @@ export default function VisualizerUI() {
         </button>
       </div>
 
-      {/* STATUS */}
-      <div className="relative z-10 flex flex-col items-center pt-2 gap-4">
+      {/* CENTER */}
+      <div className="relative z-10 flex flex-col items-center pt-6 gap-4">
         <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-400/30 text-red-300 text-xs animate-pulse">
           <span className="w-2 h-2 rounded-full bg-red-400" />
           LIVE
         </div>
 
-        <div className="w-full max-w-4xl bg-black/40 backdrop-blur-md border border-red-500/20 rounded-2xl px-6 py-4 shadow-xl">
-          <h1 className="text-center text-white text-xl sm:text-2xl font-semibold tracking-wide">
+        <div className="w-full max-w-4xl bg-black/40 backdrop-blur-md border border-red-500/20 rounded-2xl px-6 py-4 shadow-xl text-center">
+          <h1 className="text-white text-xl sm:text-2xl font-semibold">
             Real-Time Audio Visualizer
           </h1>
-          <p className="text-center text-slate-300 mt-1 text-sm sm:text-base">
-            {status}
-          </p>
+          <p className="text-slate-300 mt-1">{status}</p>
+
+          <button
+            onClick={handleTranscribe}
+            disabled={loading}
+            className="mt-4 px-6 py-3 rounded-xl bg-red-500 text-black font-semibold hover:bg-red-400 transition disabled:opacity-60"
+          >
+            {loading ? "Transcribing..." : "Transcribe"}
+          </button>
+
+          {transcript && (
+            <p className="mt-4 text-slate-200 text-sm">{transcript}</p>
+          )}
         </div>
       </div>
 
