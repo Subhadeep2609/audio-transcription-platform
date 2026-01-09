@@ -34,8 +34,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                 // ✅ public auth endpoints
-                .requestMatchers("/api/auth/**", "/api/health").permitAll()
-
+                .requestMatchers("/api/auth/**", "/api/health","/api/transcribe/stream").permitAll()
                 // 🔐 everything else requires JWT
                 .anyRequest().authenticated()
             )
