@@ -23,7 +23,7 @@ export default function VisualizerUI() {
   const particlesRef = useRef<Particle[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-
+  const eventSourceRef = useRef<EventSource | null>(null);
   const { logout } = useAuth();
   const navigate = useNavigate();
 
@@ -72,26 +72,39 @@ export default function VisualizerUI() {
     setTranscript("");
     setLoading(true);
 
+    // Close any existing stream
+    eventSourceRef.current?.close();
+
     const token = localStorage.getItem("token");
 
     const eventSource = new EventSource(
       `http://localhost:8080/api/transcribe/stream?token=${token}`
     );
 
+    eventSourceRef.current = eventSource;
     eventSource.addEventListener("transcript", (e: MessageEvent) => {
       setTranscript((prev) => (prev ? prev + "\n" : "") + e.data);
     });
 
-    eventSource.onerror = () => {
-      eventSource.close();
-      setLoading(false);
-    };
-
     eventSource.addEventListener("complete", () => {
       eventSource.close();
+      eventSourceRef.current = null;
       setLoading(false);
     });
+
+    eventSource.onerror = () => {
+      eventSource.close();
+      eventSourceRef.current = null;
+      setLoading(false);
+    };
   };
+
+  useEffect(() => {
+  return () => {
+    eventSourceRef.current?.close();
+  };
+}, []);
+
 
   /* CANVAS */
   useEffect(() => {
