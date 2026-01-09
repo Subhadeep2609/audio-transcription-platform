@@ -1,33 +1,28 @@
 package com.echosphere.backend.controller;
 
+import com.echosphere.backend.transcription.TranscriptionStreamer;
+import org.springframework.security.core.context.SecurityContextHolder;
 import com.echosphere.backend.dto.TranscriptResponse;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/api")
-@CrossOrigin(origins = "http://localhost:5173")
+@RequestMapping("/api/transcribe")
 public class TranscriptionController {
 
-    @PostMapping("/transcribe")
-    public TranscriptResponse transcribe(
-            @RequestPart("audio") MultipartFile audio,
-            Authentication authentication
-    ) {
+    private final TranscriptionStreamer streamer;
 
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new RuntimeException("Unauthorized");
-        }
+    public TranscriptionController(TranscriptionStreamer streamer) {
+        this.streamer = streamer;
+    }
 
-        String email = authentication.getName(); // extracted from JWT
+    @PostMapping
+    public void startTranscription() {
 
-        // 🔹 TEMP: Dummy transcription (Step 1)
-        return new TranscriptResponse(
-                "completed",
-                "Audio received successfully for user " + email +
-                        " (file: " + audio.getOriginalFilename() + ")",
-                0.93
-        );
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String email = auth.getName();
+
+        streamer.startStreaming(email);
     }
 }

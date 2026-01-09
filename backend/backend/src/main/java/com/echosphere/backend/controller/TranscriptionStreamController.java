@@ -1,57 +1,41 @@
 package com.echosphere.backend.controller;
 
-import com.echosphere.backend.util.JwtUtil;
+import com.echosphere.backend.transcription.TranscriptionEmitterRegistry;
+import com.echosphere.backend.service.SseSessionRegistry;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import java.util.concurrent.Executors;
 
 @RestController
 @RequestMapping("/api/transcribe")
 public class TranscriptionStreamController {
 
-    private final JwtUtil jwtUtil;
+    private final TranscriptionEmitterRegistry registry;
 
-    public TranscriptionStreamController(JwtUtil jwtUtil) {
-        this.jwtUtil = jwtUtil;
+    public TranscriptionStreamController(TranscriptionEmitterRegistry registry) {
+        this.registry = registry;
     }
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamTranscription(@RequestParam("token") String token) {
+    public SseEmitter stream() {
 
-        // ✅ MANUAL JWT VALIDATION
-        if (!jwtUtil.validateToken(token)) {
-            throw new RuntimeException("Invalid JWT");
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new RuntimeException("Unauthorized");
         }
 
-        String email = jwtUtil.extractEmail(token);
+        String email = auth.getName();
 
-        SseEmitter emitter = new SseEmitter(0L); // no timeout
+        SseEmitter emitter = new SseEmitter(0L);
+        registry.add(email, emitter);
 
-        Executors.newSingleThreadExecutor().execute(() -> {
-            try {
-                String[] chunks = {
-                        "Starting transcription...",
-                        "Analyzing audio input...",
-                        "Detecting speech patterns...",
-                        "Generating transcript...",
-                        "Transcription completed for " + email
-                };
-
-                for (String chunk : chunks) {
-                    emitter.send(SseEmitter.event()
-                            .name("transcript")
-                            .data(chunk));
-                    Thread.sleep(1000);
-                }
-                emitter.send(SseEmitter.event().name("complete").data("done"));
-                emitter.complete();
-
-            } catch (Exception e) {
-                emitter.completeWithError(e);
-            }
-        });
+        emitter.onCompletion(() -> registry.remove(email));
+        emitter.onTimeout(() -> registry.remove(email));
+        emitter.onError(e -> registry.remove(email));
 
         return emitter;
     }
