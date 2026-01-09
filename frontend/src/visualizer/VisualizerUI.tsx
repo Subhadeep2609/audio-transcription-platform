@@ -36,7 +36,9 @@ export default function VisualizerUI() {
   useEffect(() => {
     (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
 
         // Recorder
         const mediaRecorder = new MediaRecorder(stream);
@@ -79,7 +81,9 @@ export default function VisualizerUI() {
       mediaRecorderRef.current?.stop();
 
       mediaRecorderRef.current!.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
         const formData = new FormData();
         formData.append("audio", audioBlob, "recording.webm");
 
@@ -119,6 +123,28 @@ export default function VisualizerUI() {
     resize();
     window.addEventListener("resize", resize);
 
+    // INIT PARTICLES INSIDE CIRCLE
+    const initParticles = () => {
+      const cx = innerWidth / 2;
+      const cy = innerHeight / 2 + innerHeight * 0.08;
+      const radius = Math.min(innerWidth, innerHeight) * 0.22 * 0.9;
+
+      particlesRef.current = Array.from({ length: 60 }, () => {
+        const angle = Math.random() * Math.PI * 2;
+        const r = Math.random() * radius;
+
+        return {
+          x: cx + Math.cos(angle) * r,
+          y: cy + Math.sin(angle) * r,
+          vx: (Math.random() - 0.5) * 0.35,
+          vy: (Math.random() - 0.5) * 0.35,
+          r: Math.random() * 1.6 + 0.6,
+        };
+      });
+    };
+
+    initParticles();
+
     const draw = () => {
       requestAnimationFrame(draw);
       if (!analyserRef.current || !dataRef.current) return;
@@ -135,6 +161,36 @@ export default function VisualizerUI() {
 
       hueRef.current = (hueRef.current + 0.35) % 360;
 
+      // BASE STATIC CIRCLE (ANCHOR)
+      ctx.beginPath();
+      ctx.arc(cx, cy, baseRadius, 0, Math.PI * 2);
+      ctx.strokeStyle = "hsla(${(hueRef.current + dist) % 360},90%,60%,0.6)"
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = "#ef4444";
+      ctx.stroke();
+
+      // PARTICLES INSIDE CIRCLE
+      particlesRef.current.forEach((p) => {
+        p.x += p.vx;
+        p.y += p.vy;
+
+        const dx = p.x - cx;
+        const dy = p.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // Bounce inside circle
+        if (dist > baseRadius * 0.9) {
+          p.vx *= -1;
+          p.vy *= -1;
+        }
+
+        ctx.fillStyle = `hsla(${(hueRef.current + dist) % 360},90%,60%,0.6)`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
       for (let i = 0; i < bars; i++) {
         const raw = dataRef.current[i] / 255;
         smoothRef.current[i] = smoothRef.current[i] * 0.85 + raw * 0.15;
@@ -144,13 +200,14 @@ export default function VisualizerUI() {
         const x1 = cx + Math.cos(angle) * baseRadius;
         const y1 = cy + Math.sin(angle) * baseRadius;
         const x2 = cx + Math.cos(angle) * (baseRadius + intensity * baseRadius);
+        const y2 = cy + Math.sin(angle) * (baseRadius + intensity * baseRadius);
 
         ctx.strokeStyle = `hsla(${(hueRef.current + i) % 360},90%,60%,0.6)`;
         ctx.lineWidth = 2;
 
         ctx.beginPath();
         ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y1);
+        ctx.lineTo(x2, y2);
         ctx.stroke();
       }
     };
@@ -180,7 +237,7 @@ export default function VisualizerUI() {
       </div>
 
       {/* CENTER */}
-      <div className="relative z-10 flex flex-col items-center pt-6 gap-4">
+      <div className="relative z-10 flex flex-col items-center  gap-4">
         <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-400/30 text-red-300 text-xs animate-pulse">
           <span className="w-2 h-2 rounded-full bg-red-400" />
           LIVE
@@ -195,7 +252,7 @@ export default function VisualizerUI() {
           <button
             onClick={handleTranscribe}
             disabled={loading}
-            className="mt-4 px-6 py-3 rounded-xl bg-red-500 text-black font-semibold hover:bg-red-400 transition disabled:opacity-60"
+            className="mt-2 px-6 py-2 rounded-xl bg-red-500 text-black font-semibold hover:bg-red-400 transition disabled:opacity-60"
           >
             {loading ? "Transcribing..." : "Transcribe"}
           </button>
