@@ -68,60 +68,35 @@ export default function VisualizerUI() {
   }, []);
 
   /* TRANSCRIBE */
-  const handleTranscribe = async () => {
-    if (!mediaRecorderRef.current) return;
-
-    setTranscript(null);
+  const handleTranscribe = () => {
+    setTranscript("");
     setLoading(true);
-    audioChunksRef.current = [];
 
-    mediaRecorderRef.current.start();
+    const token = localStorage.getItem("token");
 
-    setTimeout(async () => {
-      mediaRecorderRef.current?.stop();
+    const eventSource = new EventSource(
+      `http://localhost:8080/api/transcribe/stream?token=${token}`
+    );
 
-      mediaRecorderRef.current!.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: "audio/webm",
-        });
-        const formData = new FormData();
-        formData.append("audio", audioBlob, "recording.webm");
+    eventSource.addEventListener("transcript", (e: MessageEvent) => {
+      setTranscript((prev) => (prev ? prev + "\n" : "") + e.data);
+    });
 
-        try {
-          const res = await fetch("http://localhost:8080/api/transcribe", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-            body: formData,
-          });
+    eventSource.onerror = () => {
+      eventSource.close();
+      setLoading(false);
+    };
 
-          const data = await res.json();
-          setTranscript(data.text);
-        } catch {
-          setTranscript("Transcription failed");
-        } finally {
-          setLoading(false);
-        }
-      };
-    }, 4000);
+    eventSource.addEventListener("complete", () => {
+      eventSource.close();
+      setLoading(false);
+    });
   };
 
   /* CANVAS */
   useEffect(() => {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
-
-    const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = innerWidth * dpr;
-      canvas.height = innerHeight * dpr;
-      canvas.style.width = `${innerWidth}px`;
-      canvas.style.height = `${innerHeight}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
-    resize();
-    window.addEventListener("resize", resize);
 
     // INIT PARTICLES INSIDE CIRCLE
     const initParticles = () => {
@@ -145,6 +120,18 @@ export default function VisualizerUI() {
 
     initParticles();
 
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = innerWidth * dpr;
+      canvas.height = innerHeight * dpr;
+      canvas.style.width = `${innerWidth}px`;
+      canvas.style.height = `${innerHeight}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      initParticles();
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
     const draw = () => {
       requestAnimationFrame(draw);
       if (!analyserRef.current || !dataRef.current) return;
@@ -164,7 +151,7 @@ export default function VisualizerUI() {
       // BASE STATIC CIRCLE (ANCHOR)
       ctx.beginPath();
       ctx.arc(cx, cy, baseRadius, 0, Math.PI * 2);
-      ctx.strokeStyle = "hsla(${(hueRef.current + dist) % 360},90%,60%,0.6)"
+      ctx.strokeStyle = `hsla(${hueRef.current % 360},90%,60%,0.6)`;
       ctx.lineWidth = 3;
       ctx.shadowBlur = 18;
       ctx.shadowColor = "#ef4444";
@@ -181,8 +168,10 @@ export default function VisualizerUI() {
 
         // Bounce inside circle
         if (dist > baseRadius * 0.9) {
-          p.vx *= -1;
-          p.vy *= -1;
+          const nx = dx / dist;
+          const ny = dy / dist;
+          p.vx -= 2 * (p.vx * nx + p.vy * ny) * nx;
+          p.vy -= 2 * (p.vx * nx + p.vy * ny) * ny;
         }
 
         ctx.fillStyle = `hsla(${(hueRef.current + dist) % 360},90%,60%,0.6)`;
