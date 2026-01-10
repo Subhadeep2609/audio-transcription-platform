@@ -24,6 +24,7 @@ export default function VisualizerUI() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const { logout } = useAuth();
   const navigate = useNavigate();
 
@@ -67,6 +68,49 @@ export default function VisualizerUI() {
     })();
   }, []);
 
+  useEffect(() => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setStatus("Speech Recognition not supported");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let finalTranscript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript + " ";
+        }
+      }
+
+      if (finalTranscript.trim()) {
+        setTranscript((prev) =>
+          prev ? prev + " " + finalTranscript : finalTranscript
+        );
+      }
+    };
+
+    recognition.onerror = () => {
+      setStatus("Speech recognition error");
+    };
+    recognition.onend = () => {
+      console.log("Speech recognition stopped");
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => recognition.stop();
+  }, []);
+
   /* TRANSCRIBE */
   const handleTranscribe = () => {
     setTranscript("");
@@ -100,11 +144,10 @@ export default function VisualizerUI() {
   };
 
   useEffect(() => {
-  return () => {
-    eventSourceRef.current?.close();
-  };
-}, []);
-
+    return () => {
+      eventSourceRef.current?.close();
+    };
+  }, []);
 
   /* CANVAS */
   useEffect(() => {
@@ -257,6 +300,22 @@ export default function VisualizerUI() {
             className="mt-2 px-6 py-2 rounded-xl bg-red-500 text-black font-semibold hover:bg-red-400 transition disabled:opacity-60"
           >
             {loading ? "Transcribing..." : "Transcribe"}
+          </button>
+
+          <button
+            onClick={() => {
+              setTranscript("");
+              setStatus("Listening");
+
+              try {
+                recognitionRef.current?.start();
+              } catch (e) {
+                console.error("Speech start error", e);
+              }
+            }}
+            className="mt-2 px-2 ml-2 py-2 rounded-xl bg-red-500 text-black font-semibold hover:bg-red-400 transition"
+          >
+            Start Speaking
           </button>
 
           {transcript && (
