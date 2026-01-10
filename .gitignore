@@ -13,3 +13,6 @@ Thumbs.db
 
 #vs code
 .history/
+
+# Local secrets
+backend/backend/src/main/resources/application-local.properties
