@@ -24,32 +24,32 @@ public class GeminiService {
     public String generateText(String prompt) {
         try {
             String body = """
-            {
-              "contents": [
-                {
-                  "parts": [
-                    { "text": "%s" }
-                  ]
-                }
-              ]
-            }
-            """.formatted(prompt);
+                    {
+                      "contents": [
+                        {
+                          "parts": [
+                            { "text": "%s" }
+                          ]
+                        }
+                      ]
+                    }
+                    """.formatted(prompt);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(
-                        "https://generativelanguage.googleapis.com/v1beta/models/"
-                        + config.getModel()
-                        + ":generateContent?key="
-                        + config.getApiKey()
-                    ))
+                            "https://generativelanguage.googleapis.com/v1/"
+                                    + config.getModel()
+                                    + ":generateContent?key="
+                                    + config.getApiKey()))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
 
-            HttpResponse<String> response =
-                    client.send(request, HttpResponse.BodyHandlers.ofString());
-
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             
+            System.out.println("=== Gemini raw response ===");
+            System.out.println(response.body());
+            System.out.println("=== End Gemini response ===");
 
             // 🔥 Parse Gemini JSON
             JsonNode root = objectMapper.readTree(response.body());
@@ -72,4 +72,24 @@ public class GeminiService {
             throw new RuntimeException("Gemini API error", e);
         }
     }
+
+    public String[] generateChunks(String prompt) {
+        String fullText = generateText(prompt);
+
+        // simple chunking (later replaced by true streaming)
+        int chunkSize = 30;
+        int len = fullText.length();
+
+        int parts = (int) Math.ceil((double) len / chunkSize);
+        String[] chunks = new String[parts];
+
+        for (int i = 0; i < parts; i++) {
+            int start = i * chunkSize;
+            int end = Math.min(start + chunkSize, len);
+            chunks[i] = fullText.substring(start, end);
+        }
+
+        return chunks;
+    }
+
 }
